@@ -1,0 +1,89 @@
+name: Android CI
+
+on:
+  push:
+    branches:
+      - 'release/**'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Application version'
+        required: true
+        default: '1.0'
+
+env:
+  APP_MODULE: app
+  APK_NAME: mini-snake
+  PLAYSTORE_NAME: MiniSnake Game
+  KEYSTORE: ${{ secrets.KEYSTORE }}
+  KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+  KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+  STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+  JAVA_VERSION: '17'
+
+jobs:
+  build:
+    name: Build and Sign APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v2
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Decode Keystore
+        id: decode_keystore
+        uses: timheuer/base64-to-file@v1.2
+        with:
+          fileName: 'android_keystore.jks'
+          fileDir: ${{ github.workspace }}/app/keystore/
+          encodedString: ${{ env.KEYSTORE }}
+
+      - name: Build APK
+        run: ./gradlew :${{ env.APP_MODULE }}:assembleRelease -x test
+        env:
+          SIGNING_KEY_ALIAS: ${{ env.KEY_ALIAS }}
+          SIGNING_KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
+          SIGNING_STORE_PASSWORD: ${{ env.STORE_PASSWORD }}
+
+      - name: Upload APK to GitHub
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ env.APK_NAME }}
+          path: ${{ env.APP_MODULE }}/build/outputs/apk/release/${{ env.APK_NAME }}_${{ github.event.inputs.version }}.apk
+      - name: Debug Build Directory
+        run: |
+          ls -R ${{ env.APP_MODULE }}/build
+
+  release_github:
+    name: Release APK to GitHub
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download APK from build
+        uses: actions/download-artifact@v1
+        with:
+          name: ${{ env.APK_NAME }}
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: Release v${{ github.event.inputs.version }} for ${{ env.PLAYSTORE_NAME }}
+          draft: false
+          prerelease: false
+          body: |
+            This is the release description.
+            You can add more details here.
+          files: ${{ env.APK_NAME }}/${{ env.APK_NAME }}_${{ github.event.inputs.version }}.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

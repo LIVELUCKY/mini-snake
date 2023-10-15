@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@android:color/holo_green_dark" />
+    <foreground>
+        <vector
+            android:width="32dp"
+            android:height="32dp"
+            android:viewportWidth="128"
+            android:viewportHeight="128">
+            <path
+                android:fillColor="@android:color/black"
+                android:pathData="M 24.00,42.88 C 25.80,43.28 27.88,43.87 28.91,44.00 C 33.95,44.65 39.26,52.25 43.50,66.69 C 44.90,71.54 46.71,77.23 47.54,79.34 C 52.43,91.75 63.00,95.99 75.41,90.50 C 78.51,89.12 81.74,88.00 82.58,88.00 C 85.16,88.00 90.92,93.33 91.00,95.68 C 91.14,99.52 97.47,104.00 100.23,104.00 C 102.29,104.00 102.10,99.36 101.29,95.88 C 101.29,95.88 100.65,91.29 96.23,89.79 C 94.83,89.32 94.18,89.59 92.73,88.63 C 91.28,87.68 88.91,84.64 87.60,83.84 C 83.27,81.19 79.63,81.36 73.86,83.98 C 71.46,85.07 68.06,85.97 66.29,85.98 C 61.92,86.01 56.43,81.04 53.69,74.58 C 52.50,71.78 49.15,64.67 46.23,58.77 C 39.85,45.86 36.79,43.05 27.77,41.82 C 20.82,40.87 19.45,41.26 24.10,42.88 z"
+                android:strokeWidth="1"
+                android:strokeColor="@android:color/holo_red_dark" />
+        </vector>
+    </foreground>
+</adaptive-icon>
