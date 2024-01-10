@@ -13,6 +13,7 @@ on:
 
 env:
   APP_MODULE: app
+  APK_NAME: mini-snake
   AAB_NAME: mini-snake-bundle
   PLAYSTORE_NAME: MiniSnake Game
   PACKAGE_NAME: de.nazmi.minisnake
@@ -52,7 +53,7 @@ jobs:
       - name: Build APK and AAB
         run: |
           echo "Building APK..."
-          ./gradlew :${{ env.APP_MODULE }}:bundle -x test
+          ./gradlew :${{ env.APP_MODULE }}:assembleRelease -x test
           echo "Building AAB..."
           ./gradlew bundleRelease
         env:
@@ -88,7 +89,6 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: ${{ env.APK_NAME }}
-
       - name: Create GitHub Release
         id: create_release
         uses: softprops/action-gh-release@v1
@@ -107,7 +107,7 @@ jobs:
         with:
           serviceAccountJsonPlainText: ${{ env.SERVICE_ACCOUNT }}
           packageName: ${{ env.PACKAGE_NAME }}
-          releaseFiles: ${{ env.APP_MODULE }}/build/outputs/apk/release/${{ env.APK_NAME }}_${{ github.event.inputs.version }}.apk
+          releaseFiles: ${{ env.APP_MODULE }}/build/outputs/bundle/release/app-release.aab
           track: production
           status: inProgress
           inAppUpdatePriority: 1
