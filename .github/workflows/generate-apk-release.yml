@@ -76,7 +76,7 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: ${{ env.AAB_NAME }}
-          path: ${{ env.APP_MODULE }}/build/outputs/bundle/release/${{ env.AAB_NAME }}_${{ github.event.inputs.version }}.aab
+          path: app/build/outputs/bundle/release/app-release.aab
 
   release:
     name: Release APK and AAB
