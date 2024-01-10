@@ -50,30 +50,34 @@ jobs:
           encodedString: ${{ env.KEYSTORE }}
 
       - name: Build APK
-        run: ./gradlew :${{ env.APP_MODULE }}:assembleRelease -x test
+        run: |
+          echo "Building APK..."
+          ./gradlew :${{ env.APP_MODULE }}:assembleRelease -x test
         env:
           SIGNING_KEY_ALIAS: ${{ env.KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
           SIGNING_STORE_PASSWORD: ${{ env.STORE_PASSWORD }}
+
+      - name: List Release Files
+        run: |
+          echo "Listing release files..."
+          find ${{ env.APP_MODULE }}/build/outputs/apk/release -type f
 
       - name: Upload APK to GitHub
         uses: actions/upload-artifact@v2
         with:
           name: ${{ env.APK_NAME }}
           path: ${{ env.APP_MODULE }}/build/outputs/apk/release/${{ env.APK_NAME }}_${{ github.event.inputs.version }}.apk
-      - name: Debug Build Directory
-        run: |
-          ls -R ${{ env.APP_MODULE }}/build
 
   release:
-    name: Release APK to GitHub
+    name: Release APK
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - name: Download APK from build
-        uses: actions/download-artifact@v1
+        uses: actions/download-artifact@v2
         with:
           name: ${{ env.APK_NAME }}
 
@@ -88,9 +92,7 @@ jobs:
           body: |
             This is the release description.
             You can add more details here.
-          files: ${{ env.APK_NAME }}/${{ env.APK_NAME }}_${{ github.event.inputs.version }}.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Upload Play Store Release
         id: upload_playstore
         uses: r0adkll/upload-google-play@v1
