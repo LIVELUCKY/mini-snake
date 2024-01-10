@@ -24,11 +24,13 @@ public class SnakeGame extends SurfaceView implements Runnable, SurfaceHolder.Ca
     private final Random random = new Random();
     private final SharedPreferences sharedPreferences;
     private GameState gameState = GameState.INITIAL;
-    private long touchStartTime;
     private long lastBlinkTime;
     private boolean isFoodVisible = true;
-    private static final long BLINK_INTERVAL = 500;
+    private static final long BLINK_INTERVAL = 900;
     private static final String HIGH_SCORE_KEY = "HighScore";
+    private float initialTouchX;
+    private float initialTouchY;
+    private long lastPressTime;
 
     public SnakeGame(Context context) {
         super(context);
@@ -140,7 +142,7 @@ public class SnakeGame extends SurfaceView implements Runnable, SurfaceHolder.Ca
             paint.setTextSize(60); // Increased text size
 
             if (gameState == GameState.INITIAL || gameState == GameState.GAME_OVER) {
-                String text = gameState == GameState.INITIAL ? "Double click to start game" :
+                String text = gameState == GameState.INITIAL ? "Hold to start game" :
                         "Game Over. Score: " + score + ". High Score: " + highScore;
                 // Calculate x and y to center the text
                 float textWidth = paint.measureText(text);
@@ -149,7 +151,7 @@ public class SnakeGame extends SurfaceView implements Runnable, SurfaceHolder.Ca
                 canvas.drawText(text, x, y, paint);
 
                 if (gameState == GameState.GAME_OVER) {
-                    String restartText = "Hold for 2 seconds to restart";
+                    String restartText = "Touch to restart";
                     float restartTextWidth = paint.measureText(restartText);
                     float restartX = (getWidth() - restartTextWidth) / 2;
                     canvas.drawText(restartText, restartX, y + 70, paint); // Adjust y position for restart text
@@ -163,50 +165,29 @@ public class SnakeGame extends SurfaceView implements Runnable, SurfaceHolder.Ca
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (gameState == GameState.INITIAL) {
-            if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                resetGame();
-                gameState = GameState.RUNNING;
-            }
-            return true;
-        }
-
-        if (gameState == GameState.GAME_OVER) {
-            if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                touchStartTime = System.currentTimeMillis();
-            } else if (event.getAction() == MotionEvent.ACTION_UP) {
-                if (System.currentTimeMillis() - touchStartTime >= 2000) {
-                    resetGame();
-                    gameState = GameState.RUNNING;
-                }
-            }
-            return true;
-        }
-
-        if (gameState == GameState.RUNNING) {
-            if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                float touchX = event.getX();
-                float touchY = event.getY();
-                PointF head = snakeBody.getFirst();
-
-                if (Math.abs(touchX - head.x) > Math.abs(touchY - head.y)) {
-                    if (touchX > head.x && direction != Direction.LEFT) {
-                        direction = Direction.RIGHT;
-                    } else if (touchX < head.x && direction != Direction.RIGHT) {
-                        direction = Direction.LEFT;
-                    }
-                } else {
-                    if (touchY > head.y && direction != Direction.UP) {
-                        direction = Direction.DOWN;
-                    } else if (touchY < head.y && direction != Direction.DOWN) {
-                        direction = Direction.UP;
+        switch (event.getAction() & MotionEvent.ACTION_MASK) {
+            case MotionEvent.ACTION_DOWN:
+                initialTouchX = event.getX();
+                initialTouchY = event.getY();
+                lastPressTime = System.currentTimeMillis();
+                break;
+            case MotionEvent.ACTION_UP:
+                if (System.currentTimeMillis() - lastPressTime >= 1000L) {
+                    if (gameState != GameState.RUNNING) {
+                        resetGame();
+                        gameState = GameState.RUNNING;
                     }
                 }
-            }
-            return true;
+                break;
+            case MotionEvent.ACTION_MOVE:
+                float deltaX = event.getX() - initialTouchX;
+                float deltaY = event.getY() - initialTouchY;
+                direction = Math.abs(deltaX) > Math.abs(deltaY)
+                        ? (deltaX > 0 ? Direction.RIGHT : Direction.LEFT)
+                        : (deltaY > 0 ? Direction.DOWN : Direction.UP);
+                break;
         }
-
-        return super.onTouchEvent(event);
+        return true;
     }
 
     private void randomizeFood() {
