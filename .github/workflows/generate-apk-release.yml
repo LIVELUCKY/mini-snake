@@ -89,7 +89,6 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           name: ${{ env.APK_NAME }}
-          name: ${{ env.AAB_NAME }}
 
       - name: Create GitHub Release
         id: create_release
