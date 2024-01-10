@@ -107,7 +107,7 @@ jobs:
         with:
           serviceAccountJsonPlainText: ${{ env.SERVICE_ACCOUNT }}
           packageName: ${{ env.PACKAGE_NAME }}
-          releaseFiles: ${{ env.APP_MODULE }}/build/outputs/bundle/release/app-release.aab
+          releaseFiles: app/build/outputs/bundle/release/app-release.aab
           track: production
           status: inProgress
           inAppUpdatePriority: 1
