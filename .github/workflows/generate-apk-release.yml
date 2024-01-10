@@ -13,7 +13,6 @@ on:
 
 env:
   APP_MODULE: app
-  APK_NAME: mini-snake
   AAB_NAME: mini-snake-bundle
   PLAYSTORE_NAME: MiniSnake Game
   PACKAGE_NAME: de.nazmi.minisnake
@@ -53,7 +52,7 @@ jobs:
       - name: Build APK and AAB
         run: |
           echo "Building APK..."
-          ./gradlew :${{ env.APP_MODULE }}:assembleRelease -x test
+          ./gradlew :${{ env.APP_MODULE }}:bundle -x test
           echo "Building AAB..."
           ./gradlew bundleRelease
         env:

@@ -32,9 +32,6 @@ android {
                 }
             }
             signingConfig signingConfigs.release
-            bundle {
-                enabled true
-            }
         }
     }
     compileOptions {
