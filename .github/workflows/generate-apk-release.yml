@@ -58,6 +58,12 @@ jobs:
           SIGNING_KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
           SIGNING_STORE_PASSWORD: ${{ env.STORE_PASSWORD }}
 
+      - name: Upload AAB as Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: aab-artifact
+          path: app/build/outputs/bundle/release/app-release.aab
+
       - name: List Release Files
         run: |
           echo "Listing release files..."
@@ -68,6 +74,11 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Download AAB Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: aab-artifact
+          path: app/build/outputs/bundle/release/
       - name: Upload Play Store Release
         uses: r0adkll/upload-google-play@v1
         with:
