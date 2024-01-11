@@ -13,7 +13,6 @@ on:
 
 env:
   APP_MODULE: app
-  APK_NAME: mini-snake
   AAB_NAME: mini-snake-bundle
   PLAYSTORE_NAME: MiniSnake Game
   PACKAGE_NAME: de.nazmi.minisnake
@@ -26,7 +25,7 @@ env:
 
 jobs:
   build:
-    name: Build and Sign APK and AAB
+    name: Build and Sign AAB
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -50,10 +49,8 @@ jobs:
           fileDir: ${{ github.workspace }}/app/keystore/
           encodedString: ${{ env.KEYSTORE }}
 
-      - name: Build APK and AAB
+      - name: Build AAB
         run: |
-          echo "Building APK..."
-          ./gradlew :${{ env.APP_MODULE }}:assembleRelease -x test
           echo "Building AAB..."
           ./gradlew bundleRelease
         env:
@@ -66,43 +63,12 @@ jobs:
           echo "Listing release files..."
           find ${{ env.APP_MODULE }}/build/outputs -type f
 
-      - name: Upload APK to GitHub
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ env.APK_NAME }}
-          path: ${{ env.APP_MODULE }}/build/outputs/apk/release/${{ env.APK_NAME }}_${{ github.event.inputs.version }}.apk
-
-      - name: Upload AAB to GitHub
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ env.AAB_NAME }}
-          path: app/build/outputs/bundle/release/app-release.aab
-
   release:
-    name: Release APK and AAB
+    name: Release to Play Store
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: Download APK and AAB from build
-        uses: actions/download-artifact@v2
-        with:
-          name: ${{ env.APK_NAME }}
-      - name: Create GitHub Release
-        id: create_release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: v${{ github.event.inputs.version }}
-          name: Release v${{ github.event.inputs.version }} for ${{ env.PLAYSTORE_NAME }}
-          draft: false
-          prerelease: false
-          body: |
-            This is the release description.
-            You can add more details here.
-
       - name: Upload Play Store Release
-        id: upload_playstore
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ env.SERVICE_ACCOUNT }}
