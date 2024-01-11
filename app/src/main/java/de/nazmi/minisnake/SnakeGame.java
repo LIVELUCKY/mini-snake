@@ -5,48 +5,48 @@ import android.content.SharedPreferences;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.PointF;
+import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
-public class SnakeGame extends SurfaceView implements Runnable, SurfaceHolder.Callback {
+public class SnakeGame extends SurfaceView implements Runnable, SurfaceHolder.Callback, GestureDetector.OnGestureListener {
     private Thread gameThread;
     private boolean isRunning;
-    private final Paint paint;
-    private final LinkedList<PointF> snakeBody;
-    private float foodX, foodY, gridSize;
-    private int maxX, maxY, score, highScore;
+    private final Paint paint = new Paint();
+    private final List<Point> snakeBody = new ArrayList<>();
+    private Point food;
+    private int gridSize, maxX, maxY, score, highScore;
     private Direction direction = Direction.RIGHT;
     private final Random random = new Random();
     private final SharedPreferences sharedPreferences;
     private GameState gameState = GameState.INITIAL;
-    private long lastBlinkTime;
-    private boolean isFoodVisible = true;
-    private static final long BLINK_INTERVAL = 900;
     private static final String HIGH_SCORE_KEY = "HighScore";
-    private float initialTouchX;
-    private float initialTouchY;
-    private long lastPressTime;
+    private final GestureDetector gestureDetector;
+
+    private static final float SWIPE_THRESHOLD = 100;
+    private static final float SWIPE_VELOCITY_THRESHOLD = 100;
+
 
     public SnakeGame(Context context) {
         super(context);
-        paint = new Paint();
-        snakeBody = new LinkedList<>();
+        gestureDetector = new GestureDetector(context, this);
         sharedPreferences = context.getSharedPreferences("SnakeGame", Context.MODE_PRIVATE);
         highScore = sharedPreferences.getInt(HIGH_SCORE_KEY, 0);
         getHolder().addCallback(this);
+        paint.setTextSize(40);
     }
 
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
-        gridSize = Math.min(getWidth(), getHeight()) / 26f;
-        maxX = (int) (getWidth() / gridSize) - 1;
-        maxY = (int) (getHeight() / gridSize) - 1;
-        randomizeFood();
+        gridSize = Math.min(getWidth(), getHeight()) / 20;
+        maxX = getWidth() / gridSize;
+        maxY = getHeight() / gridSize;
+        resetGame();
         startGame();
     }
 
@@ -75,39 +75,24 @@ public class SnakeGame extends SurfaceView implements Runnable, SurfaceHolder.Ca
     }
 
     private void updateGame() {
-        if (snakeBody.isEmpty()) {
-            return;
-        }
+        if (snakeBody.isEmpty()) return;
 
-        PointF head = new PointF(snakeBody.getFirst().x, snakeBody.getFirst().y);
-        switch (direction) {
-            case RIGHT:
-                head.x += gridSize;
-                break;
-            case LEFT:
-                head.x -= gridSize;
-                break;
-            case UP:
-                head.y -= gridSize;
-                break;
-            case DOWN:
-                head.y += gridSize;
-                break;
-        }
+        Point head = new Point(snakeBody.get(0));
+        head.offset(direction.dx * gridSize, direction.dy * gridSize);
 
-        if (head.x < 0 || head.y < 0 || head.x >= getWidth() || head.y >= getHeight() || contains(snakeBody, head)) {
+        if (isGameOver(head)) {
             gameState = GameState.GAME_OVER;
             saveHighScore();
             return;
         }
 
-        snakeBody.addFirst(head);
+        snakeBody.add(0, head);
 
-        if (Math.abs(head.x - foodX) < gridSize && Math.abs(head.y - foodY) < gridSize) {
+        if (head.equals(food)) {
             score++;
             randomizeFood();
         } else {
-            snakeBody.removeLast();
+            snakeBody.remove(snakeBody.size() - 1);
         }
     }
 
@@ -116,88 +101,44 @@ public class SnakeGame extends SurfaceView implements Runnable, SurfaceHolder.Ca
         if (canvas != null) {
             canvas.drawColor(Color.BLACK);
             paint.setColor(Color.GREEN);
-
-            for (PointF point : snakeBody) {
-                float padding = 2f;
-                float left = point.x + padding;
-                float top = point.y + padding;
-                float right = point.x + gridSize - padding;
-                float bottom = point.y + gridSize - padding;
-                canvas.drawRect(left, top, right, bottom, paint);
+            for (Point point : snakeBody) {
+                canvas.drawRect(point.x, point.y, point.x + gridSize, point.y + gridSize, paint);
             }
-
-            // Blinking food logic
-            long currentTime = System.currentTimeMillis();
-            if (currentTime - lastBlinkTime > BLINK_INTERVAL) {
-                isFoodVisible = !isFoodVisible;
-                lastBlinkTime = currentTime;
-            }
-
-            if (isFoodVisible && gameState == GameState.RUNNING) {
+            if (gameState == GameState.RUNNING) {
                 paint.setColor(Color.RED);
-                canvas.drawRect(foodX, foodY, foodX + gridSize, foodY + gridSize, paint);
+                canvas.drawRect(food.x, food.y, food.x + gridSize, food.y + gridSize, paint);
             }
-
             paint.setColor(Color.WHITE);
-            paint.setTextSize(60); // Increased text size
-
-            if (gameState == GameState.INITIAL || gameState == GameState.GAME_OVER) {
-                String text = gameState == GameState.INITIAL ? "Hold to start game" :
-                        "Game Over. Score: " + score + ". High Score: " + highScore;
-                // Calculate x and y to center the text
-                float textWidth = paint.measureText(text);
-                float x = (getWidth() - textWidth) / 2;
-                float y = (float) getHeight() / 2;
-                canvas.drawText(text, x, y, paint);
-
-                if (gameState == GameState.GAME_OVER) {
-                    String restartText = "Touch to restart";
-                    float restartTextWidth = paint.measureText(restartText);
-                    float restartX = (getWidth() - restartTextWidth) / 2;
-                    canvas.drawText(restartText, restartX, y + 70, paint); // Adjust y position for restart text
-                }
+            String text = "";
+            if (gameState == GameState.INITIAL) {
+                text = "Tap to Start";
+            } else if (gameState == GameState.GAME_OVER) {
+                text = "Game Over! Score: " + score + (highScore > 0 ? ". High Score: " + highScore : "") + ". Tap to Restart";
             }
-
+            drawCenterText(canvas, text);
             getHolder().unlockCanvasAndPost(canvas);
         }
     }
 
+    private void drawCenterText(Canvas canvas, String text) {
+        float textWidth = paint.measureText(text);
+        float x = (getWidth() - textWidth) / 2;
+        float y = getHeight() / 2;
+        canvas.drawText(text, x, y, paint);
+    }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        switch (event.getAction() & MotionEvent.ACTION_MASK) {
-            case MotionEvent.ACTION_DOWN:
-                initialTouchX = event.getX();
-                initialTouchY = event.getY();
-                lastPressTime = System.currentTimeMillis();
-                break;
-            case MotionEvent.ACTION_UP:
-                if (System.currentTimeMillis() - lastPressTime >= 1000L) {
-                    if (gameState != GameState.RUNNING) {
-                        resetGame();
-                        gameState = GameState.RUNNING;
-                    }
-                }
-                break;
-            case MotionEvent.ACTION_MOVE:
-                float deltaX = event.getX() - initialTouchX;
-                float deltaY = event.getY() - initialTouchY;
-                direction = Math.abs(deltaX) > Math.abs(deltaY)
-                        ? (deltaX > 0 ? Direction.RIGHT : Direction.LEFT)
-                        : (deltaY > 0 ? Direction.DOWN : Direction.UP);
-                break;
-        }
-        return true;
+        return gestureDetector.onTouchEvent(event) || super.onTouchEvent(event);
     }
 
     private void randomizeFood() {
-        foodX = random.nextInt(maxX) * gridSize;
-        foodY = random.nextInt(maxY) * gridSize;
+        food = new Point(random.nextInt(maxX) * gridSize, random.nextInt(maxY) * gridSize);
     }
 
     private void resetGame() {
         snakeBody.clear();
-        snakeBody.add(new PointF(gridSize * 5, gridSize * 5));
+        snakeBody.add(new Point(gridSize * 5, gridSize * 5));
         direction = Direction.RIGHT;
         score = 0;
         randomizeFood();
@@ -225,18 +166,102 @@ public class SnakeGame extends SurfaceView implements Runnable, SurfaceHolder.Ca
         }
     }
 
+    private boolean isGameOver(Point head) {
+        return head.x < 0 || head.x >= maxX * gridSize || head.y < 0 || head.y >= maxY * gridSize ||
+                snakeBody.subList(1, snakeBody.size()).contains(head);
+    }
 
-    private boolean contains(LinkedList<PointF> list, PointF point) {
-        for (int i = 1; i < list.size(); i++) {
-            PointF p = list.get(i);
-            if (p.x == point.x && p.y == point.y) {
-                return true;
-            }
+    @Override
+    public boolean onDown(MotionEvent e) {
+        return true;
+    }
+
+    @Override
+    public void onShowPress(MotionEvent e) {
+    }
+
+    @Override
+    public boolean onSingleTapUp(MotionEvent e) {
+        if (gameState == GameState.INITIAL || gameState == GameState.GAME_OVER) {
+            resetGame();
+            gameState = GameState.RUNNING;
+            return true;
         }
+
+        return true;
+    }
+
+
+    @Override
+    public boolean onScroll(MotionEvent e1, MotionEvent e2, float distanceX, float distanceY) {
         return false;
     }
 
-    private enum Direction {LEFT, RIGHT, UP, DOWN}
+    @Override
+    public void onLongPress(MotionEvent e) {
+    }
+
+    @Override
+    public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+        float deltaX = e2.getX() - e1.getX();
+        float deltaY = e2.getY() - e1.getY();
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+            if (Math.abs(deltaX) > SWIPE_THRESHOLD && Math.abs(velocityX) > SWIPE_VELOCITY_THRESHOLD) {
+                if (deltaX > 0 && direction != Direction.LEFT) {
+                    direction = Direction.RIGHT;
+                } else if (deltaX < 0 && direction != Direction.RIGHT) {
+                    direction = Direction.LEFT;
+                }
+            }
+        } else {
+            if (Math.abs(deltaY) > SWIPE_THRESHOLD && Math.abs(velocityY) > SWIPE_VELOCITY_THRESHOLD) {
+                if (deltaY > 0 && direction != Direction.UP) {
+                    direction = Direction.DOWN;
+                } else if (deltaY < 0 && direction != Direction.DOWN) {
+                    direction = Direction.UP;
+                }
+            }
+        }
+        return true;
+    }
+
+
+    private enum Direction {
+        LEFT(-1, 0), RIGHT(1, 0), UP(0, -1), DOWN(0, 1);
+
+        final int dx, dy;
+
+        Direction(int dx, int dy) {
+            this.dx = dx;
+            this.dy = dy;
+        }
+    }
 
     private enum GameState {INITIAL, RUNNING, GAME_OVER}
+}
+
+class Point {
+    int x, y;
+
+    public Point(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    public Point(Point p) {
+        this.x = p.x;
+        this.y = p.y;
+    }
+
+    public void offset(int dx, int dy) {
+        x += dx;
+        y += dy;
+    }
+
+    public boolean equals(Object obj) {
+        if (this == obj) return true;
+        if (!(obj instanceof Point)) return false;
+        Point other = (Point) obj;
+        return x == other.x && y == other.y;
+    }
 }
