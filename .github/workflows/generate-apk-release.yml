@@ -122,7 +122,5 @@ jobs:
           releaseFiles: output/aab/app-release.aab
           track: production
           status: inProgress
-          inAppUpdatePriority: 1
-          userFraction: 0
           whatsNewDirectory: output/whatsnew/
           mappingFile: output/mapping/mapping.txt
