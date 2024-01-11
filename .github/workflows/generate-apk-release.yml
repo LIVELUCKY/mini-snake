@@ -121,5 +121,6 @@ jobs:
           packageName: ${{ env.PACKAGE_NAME }}
           releaseFiles: output/aab/app-release.aab
           track: production
+          status: draft
           whatsNewDirectory: output/whatsnew/
           mappingFile: output/mapping/mapping.txt
