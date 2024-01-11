@@ -55,13 +55,17 @@ jobs:
           SIGNING_KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
           SIGNING_STORE_PASSWORD: ${{ env.STORE_PASSWORD }}
 
-      - name: Upload AAB and Mapping File as Artifacts
+      - name: Upload AAB as Artifact
         uses: actions/upload-artifact@v2
         with:
-          name: output-artifacts
-          path: |
-            app/build/outputs/bundle/release/app-release.aab
-            app/build/outputs/mapping/release/mapping.txt
+          name: aab-artifact
+          path: app/build/outputs/bundle/release/app-release.aab
+
+      - name: Upload Mapping File as Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: mapping-artifact
+          path: app/build/outputs/mapping/release/mapping.txt
 
   prepare_whats_new:
     name: Prepare What's New Notes
@@ -89,23 +93,36 @@ jobs:
 
   release:
     name: Release to Play Store
-    needs: [build_and_sign, prepare_whats_new]
+    needs: [ build_and_sign, prepare_whats_new ]
     runs-on: ubuntu-latest
     steps:
-      - name: Download Artifacts
+      - name: Download AAB Artifact
         uses: actions/download-artifact@v2
         with:
-          path: output/
+          name: aab-artifact
+          path: output/aab/
+
+      - name: Download Mapping File Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: mapping-artifact
+          path: output/mapping/
+
+      - name: Download What's New Notes Artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: whatsnew-artifact
+          path: output/whatsnew/
 
       - name: Upload Play Store Release
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ env.SERVICE_ACCOUNT }}
           packageName: ${{ env.PACKAGE_NAME }}
-          releaseFiles: output/app-release.aab
+          releaseFiles: output/aab/app-release.aab
           track: production
           status: inProgress
           inAppUpdatePriority: 1
           userFraction: 0.33
-          whatsNewDirectory: output/whatsnew
-          mappingFile: output/mapping.txt
+          whatsNewDirectory: output/whatsnew/
+          mappingFile: output/mapping/mapping.txt
