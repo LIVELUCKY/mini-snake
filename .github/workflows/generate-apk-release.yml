@@ -24,7 +24,7 @@ env:
   JAVA_VERSION: '17'
 
 jobs:
-  build:
+  build_and_sign:
     name: Build and Sign AAB
     runs-on: ubuntu-latest
     steps:
@@ -42,7 +42,6 @@ jobs:
         run: chmod +x gradlew
 
       - name: Decode Keystore
-        id: decode_keystore
         uses: timheuer/base64-to-file@v1.2
         with:
           fileName: 'android_keystore.jks'
@@ -50,44 +49,63 @@ jobs:
           encodedString: ${{ env.KEYSTORE }}
 
       - name: Build AAB
-        run: |
-          echo "Building AAB..."
-          ./gradlew bundleRelease
+        run: ./gradlew bundleRelease
         env:
           SIGNING_KEY_ALIAS: ${{ env.KEY_ALIAS }}
           SIGNING_KEY_PASSWORD: ${{ env.KEY_PASSWORD }}
           SIGNING_STORE_PASSWORD: ${{ env.STORE_PASSWORD }}
 
-      - name: Upload AAB as Artifact
+      - name: Upload AAB and Mapping File as Artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: aab-artifact
-          path: app/build/outputs/bundle/release/app-release.aab
+          name: output-artifacts
+          path: |
+            app/build/outputs/bundle/release/app-release.aab
+            app/build/outputs/mapping/release/mapping.txt
 
-      - name: List Release Files
+  prepare_whats_new:
+    name: Prepare What's New Notes
+    runs-on: ubuntu-latest
+    needs: build_and_sign
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Prepare What's New Notes
         run: |
-          echo "Listing release files..."
-          find ${{ env.APP_MODULE }}/build/outputs -type f
+          if [ -d "distribution/whatsnew" ]; then
+            echo "What's new directory exists."
+          else
+            echo "Creating What's New directory and default note."
+            mkdir -p distribution/whatsnew
+            echo "Some fixes and improvements." > distribution/whatsnew/en-US
+          fi
+
+      - name: Upload What's New Notes as Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: whatsnew-artifact
+          path: distribution/whatsnew
 
   release:
     name: Release to Play Store
-    needs: build
+    needs: [build_and_sign, prepare_whats_new]
     runs-on: ubuntu-latest
     steps:
-      - name: Download AAB Artifact
+      - name: Download Artifacts
         uses: actions/download-artifact@v2
         with:
-          name: aab-artifact
-          path: app/build/outputs/bundle/release/
+          path: output/
+
       - name: Upload Play Store Release
         uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ env.SERVICE_ACCOUNT }}
           packageName: ${{ env.PACKAGE_NAME }}
-          releaseFiles: app/build/outputs/bundle/release/app-release.aab
+          releaseFiles: output/app-release.aab
           track: production
           status: inProgress
           inAppUpdatePriority: 1
           userFraction: 0.33
-          whatsNewDirectory: distribution/whatsnew
-          mappingFile: ${{ env.APP_MODULE }}/build/outputs/mapping/release/mapping.txt
+          whatsNewDirectory: output/whatsnew
+          mappingFile: output/mapping.txt
