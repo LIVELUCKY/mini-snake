@@ -123,6 +123,6 @@ jobs:
           track: production
           status: inProgress
           inAppUpdatePriority: 1
-          userFraction: 0
+          userFraction: 0.2
           whatsNewDirectory: output/whatsnew/
           mappingFile: output/mapping/mapping.txt
